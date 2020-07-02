@@ -6,7 +6,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/olekukonko/tablewriter"
 	"github.com/scnewma/ynabrt"
 	"github.com/spf13/cobra"
 )
@@ -56,13 +55,7 @@ func ListReccuringTransactions() *cobra.Command {
 }
 
 func printRecurredTransactions(out io.Writer, ts []*ynabrt.RecurringTransaction) error {
-	w := tablewriter.NewWriter(out)
-	w.SetBorder(false)
-	w.SetCenterSeparator("")
-	w.SetRowLine(false)
-	w.SetColumnSeparator("")
-	w.SetHeaderLine(false)
-	w.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	w := newTablewriter(out)
 	w.SetHeader([]string{"ACCOUNT", "PAYEE", "DATE", "TOTAL"})
 	for _, t := range ts {
 		for _, o := range t.Occurrences {

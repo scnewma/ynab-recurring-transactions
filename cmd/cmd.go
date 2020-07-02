@@ -13,6 +13,7 @@ func NewYNABRTCommand() (*cobra.Command, error) {
 
 	rootCmd.PersistentFlags().String("access-token", "", "YNAB personal access token.")
 
+	rootCmd.AddCommand(commands.ListBudgets())
 	rootCmd.AddCommand(commands.ListReccuringTransactions())
 
 	return rootCmd, nil

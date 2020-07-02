@@ -2,8 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/scnewma/ynabrt"
 	"github.com/spf13/cobra"
 	"go.bmvs.io/ynab"
@@ -21,7 +23,7 @@ func logError(fn func(cmd *cobra.Command, args []string) error) func(*cobra.Comm
 	}
 }
 
-func getClient(cmd *cobra.Command) (*ynabrt.Client, error) {
+func getAPIClient(cmd *cobra.Command) (ynab.ClientServicer, error) {
 	accessTokenEnv := os.Getenv("YNAB_ACCESS_TOKEN")
 	accessToken := ""
 
@@ -39,9 +41,31 @@ func getClient(cmd *cobra.Command) (*ynabrt.Client, error) {
 		}
 	}
 
-	client, err := ynabrt.NewClient(ynab.NewClient(accessToken))
+	return ynab.NewClient(accessToken), nil
+}
+
+func getClient(cmd *cobra.Command) (*ynabrt.Client, error) {
+	apiClient, err := getAPIClient(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("could not construct ynab api client: %v", err)
+	}
+
+	client, err := ynabrt.NewClient(apiClient)
 	if err != nil {
 		return nil, fmt.Errorf("could not construct ynab client: %v", err)
 	}
+
 	return client, nil
+}
+
+func newTablewriter(out io.Writer) *tablewriter.Table {
+	w := tablewriter.NewWriter(out)
+	w.SetBorder(false)
+	w.SetCenterSeparator("")
+	w.SetRowLine(false)
+	w.SetColumnSeparator("")
+	w.SetHeaderLine(false)
+	w.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	w.SetAutoWrapText(false)
+	return w
 }
