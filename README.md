@@ -7,9 +7,6 @@ CLI that searches through your YNAB transactions (using the [YNAB API](https://a
 > Note: This CLI requires a [YNAB Personal Access Token](https://api.youneedabudget.com/#personal-access-tokens).
 
 ```
-# You can also set the YNAB_ACCESS_TOKEN environment variable instead of using the --access-token environment variable.
-
-ynabrt budgets --access-token <access-token>
-
-ynabrt list --access-token <access-token> --budget <budget-id>
+export YNAB_ACCESS_TOKEN="<access-token>"
+ynabrt list 
 ```

@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/scnewma/ynabrt"
 	"github.com/spf13/cobra"
+	"go.bmvs.io/ynab/api/budget"
 )
 
 func ListReccuringTransactions() *cobra.Command {
@@ -20,29 +22,63 @@ func ListReccuringTransactions() *cobra.Command {
 		Use:   "list",
 		Short: "List recurring transactions.",
 		RunE: logError(func(cmd *cobra.Command, args []string) error {
+			apiClient, err := getAPIClient(cmd)
+			if err != nil {
+				return err
+			}
 			client, err := getClient(cmd)
 			if err != nil {
 				return err
 			}
 
-			// TODO: list all budgets
-			if budgetID == "" {
-				return fmt.Errorf("budget id must be provided")
-			}
-
 			dayDuration := func(n int) time.Duration { return time.Duration(n*24) * time.Hour }
 
-			recurredTransactions, err := client.List(context.Background(), ynabrt.ListOptions{
-				BudgetID:           budgetID,
-				TransactionsWithin: dayDuration(withinDays),
-				MinRecurrence:      dayDuration(minRecurrenceDays),
-				MaxRecurrence:      dayDuration(maxRecurrenceDays),
-			})
+			budgetSummaries, err := apiClient.Budget().GetBudgets()
 			if err != nil {
-				return fmt.Errorf("could not list recurred transactions: %v", err)
+				return fmt.Errorf("could not list budgets: %v", err)
 			}
 
-			return printRecurredTransactions(cmd.OutOrStdout(), recurredTransactions)
+			if budgetID != "" {
+				var budget *budget.Summary
+				for _, s := range budgetSummaries {
+					if s.ID == budgetID {
+						budget = s
+					}
+				}
+
+				if budget == nil {
+					return fmt.Errorf("budget with id %q not found", budgetID)
+				}
+
+				recurredTransactions, err := client.List(context.Background(), ynabrt.ListOptions{
+					BudgetID:           budgetID,
+					TransactionsWithin: dayDuration(withinDays),
+					MinRecurrence:      dayDuration(minRecurrenceDays),
+					MaxRecurrence:      dayDuration(maxRecurrenceDays),
+				})
+				if err != nil {
+					return fmt.Errorf("could not list recurred transactions: %v", err)
+				}
+
+				printRecurredTransactions(cmd.OutOrStdout(), recurredTransactions)
+				return nil
+			}
+
+			for _, budgetSummary := range budgetSummaries {
+				fmt.Printf("\n%s:\n\n", strings.ToUpper(budgetSummary.Name))
+				recurredTransactions, err := client.List(context.Background(), ynabrt.ListOptions{
+					BudgetID:           budgetSummary.ID,
+					TransactionsWithin: dayDuration(withinDays),
+					MinRecurrence:      dayDuration(minRecurrenceDays),
+					MaxRecurrence:      dayDuration(maxRecurrenceDays),
+				})
+				if err != nil {
+					return fmt.Errorf("could not list recurred transactions: %v", err)
+				}
+
+				printRecurredTransactions(cmd.OutOrStdout(), recurredTransactions)
+			}
+			return nil
 		}),
 	}
 
@@ -54,8 +90,14 @@ func ListReccuringTransactions() *cobra.Command {
 	return cmd
 }
 
-func printRecurredTransactions(out io.Writer, ts []*ynabrt.RecurringTransaction) error {
+func printRecurredTransactions(out io.Writer, ts []*ynabrt.RecurringTransaction) {
+	if len(ts) == 0 {
+		fmt.Print("no recurring transactions found\n")
+		return
+	}
+
 	w := newTablewriter(out)
+
 	w.SetHeader([]string{"ACCOUNT", "PAYEE", "DATE", "TOTAL"})
 	for _, t := range ts {
 		for _, o := range t.Occurrences {
@@ -63,7 +105,6 @@ func printRecurredTransactions(out io.Writer, ts []*ynabrt.RecurringTransaction)
 		}
 	}
 	w.Render()
-	return nil
 }
 
 func currency(munits int64) string {
